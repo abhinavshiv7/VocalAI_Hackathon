@@ -1,0 +1,76 @@
+name: sentinelloop
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: sentinelloop
+      POSTGRES_USER: sentinelloop
+      POSTGRES_PASSWORD: sentinelloop
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sentinelloop -d sentinelloop"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+    volumes:
+      - sentinelloop-data:/var/lib/postgresql/data
+    networks: [control-plane]
+
+  fake-target:
+    build:
+      context: .
+      dockerfile: fake-target/Dockerfile
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/health"]
+      interval: 3s
+      timeout: 3s
+      retries: 15
+    networks: [authorized-lab]
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: postgresql+psycopg://sentinelloop:sentinelloop@postgres:5432/sentinelloop
+      FRONTEND_ORIGIN: http://localhost:3000
+      AUTHORIZED_TARGET_HOST: fake-target
+      AUTHORIZED_TARGET_PORT: 3000
+      AUTHORIZED_TARGET_URL: http://fake-target:3000
+      AI_MODE: ${AI_MODE:-deterministic}
+      INVESTIGATOR_BASE_URL: ${INVESTIGATOR_BASE_URL:-https://api.openai.com/v1}
+      INVESTIGATOR_API_KEY: ${INVESTIGATOR_API_KEY:-}
+      INVESTIGATOR_MODEL: ${INVESTIGATOR_MODEL:-gpt-5-mini}
+      CRITIC_BASE_URL: ${CRITIC_BASE_URL:-https://api.openai.com/v1}
+      CRITIC_API_KEY: ${CRITIC_API_KEY:-}
+      CRITIC_MODEL: ${CRITIC_MODEL:-gpt-5-mini}
+      DEBUG_FAILURES_ENABLED: ${DEBUG_FAILURES_ENABLED:-true}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      fake-target:
+        condition: service_healthy
+    networks: [control-plane, authorized-lab]
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks: [control-plane]
+
+networks:
+  control-plane:
+  authorized-lab:
+    internal: true
+
+volumes:
+  sentinelloop-data:

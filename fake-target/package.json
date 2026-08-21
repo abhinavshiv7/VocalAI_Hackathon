@@ -1,0 +1,14 @@
+{
+  "name": "sentinelloop-fake-target",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deliberately vulnerable, authorized SentinelLoop demo target",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "5.1.0"
+  }
+}
+
