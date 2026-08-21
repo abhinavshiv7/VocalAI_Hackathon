@@ -1,0 +1,91 @@
+[
+  {
+    "id": "S-01",
+    "name": "Exposed administrative endpoint",
+    "hypothesis": {"title": "Admin exposure"},
+    "evidence": [{"kind": "ADMIN_EXPOSURE", "observation": "HTTP 200 without authentication challenge"}],
+    "expected_status": "VALIDATED",
+    "confidence_range": [0.85, 1.0]
+  },
+  {
+    "id": "S-02",
+    "name": "Missing browser security headers",
+    "hypothesis": {"title": "Header weakness"},
+    "evidence": [{"kind": "MISSING_SECURITY_HEADERS", "observation": "CSP and frame controls absent"}],
+    "expected_status": "VALIDATED",
+    "confidence_range": [0.8, 0.95]
+  },
+  {
+    "id": "S-03",
+    "name": "Suspicious debug route is protected",
+    "hypothesis": {"title": "Debug exposure"},
+    "evidence": [{"kind": "AUTH_CONTROL_OBSERVED", "observation": "/api/debug returned HTTP 403"}],
+    "expected_status": "REJECTED",
+    "confidence_range": [0.8, 0.95]
+  },
+  {
+    "id": "S-04",
+    "name": "Insufficient generic reachability evidence",
+    "hypothesis": {"title": "Possible weakness"},
+    "evidence": [{"kind": "OBSERVATION", "observation": "The service is reachable"}],
+    "expected_status": "NEEDS_HUMAN_REVIEW",
+    "confidence_range": [0.2, 0.5]
+  },
+  {
+    "id": "S-05",
+    "name": "Tool timeout",
+    "hypothesis": {"title": "Unverified after timeout"},
+    "evidence": [{"kind": "TOOL_TIMEOUT", "observation": "Probe exceeded eight seconds"}],
+    "expected_status": "NEEDS_HUMAN_REVIEW",
+    "confidence_range": [0.0, 0.3],
+    "failure_scenario": true
+  },
+  {
+    "id": "S-06",
+    "name": "Critic model outage",
+    "hypothesis": {"title": "Model unavailable"},
+    "evidence": [{"kind": "ADMIN_EXPOSURE", "observation": "Potentially strong evidence"}],
+    "expected_status": "NEEDS_HUMAN_REVIEW",
+    "confidence_range": [0.0, 0.1],
+    "failure": "model"
+  },
+  {
+    "id": "S-07",
+    "name": "Malformed critic response",
+    "hypothesis": {"title": "Malformed model output"},
+    "evidence": [{"kind": "ADMIN_EXPOSURE", "observation": "Potentially strong evidence"}],
+    "expected_status": "NEEDS_HUMAN_REVIEW",
+    "confidence_range": [0.0, 0.1],
+    "failure": "malformed_output"
+  },
+  {
+    "id": "S-08",
+    "name": "Contradictory authentication evidence",
+    "hypothesis": {"title": "Conflicting admin behavior"},
+    "evidence": [
+      {"kind": "ADMIN_EXPOSURE", "observation": "One probe returned HTTP 200"},
+      {"kind": "AUTH_CONTROL_OBSERVED", "observation": "A second probe returned HTTP 403"}
+    ],
+    "expected_status": "NEEDS_HUMAN_REVIEW",
+    "confidence_range": [0.2, 0.6],
+    "failure_scenario": true
+  },
+  {
+    "id": "S-09",
+    "name": "Clean authentication control",
+    "hypothesis": {"title": "Admin route might be open"},
+    "evidence": [{"kind": "AUTH_CONTROL_OBSERVED", "observation": "Authentication challenge returned"}],
+    "expected_status": "REJECTED",
+    "confidence_range": [0.8, 0.95]
+  },
+  {
+    "id": "S-10",
+    "name": "Empty tool result",
+    "hypothesis": {"title": "No usable observation"},
+    "evidence": [{"kind": "TOOL_FAILED", "observation": "No normalizable output"}],
+    "expected_status": "NEEDS_HUMAN_REVIEW",
+    "confidence_range": [0.0, 0.3],
+    "failure_scenario": true
+  }
+]
+

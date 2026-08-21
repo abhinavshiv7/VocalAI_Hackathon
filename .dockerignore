@@ -1,0 +1,14 @@
+.git
+.agents
+.codex
+.venv
+.pytest_cache
+**/__pycache__
+**/*.pyc
+backend/data
+evaluation/results
+frontend/node_modules
+frontend/.next
+frontend/dist
+.env
+
