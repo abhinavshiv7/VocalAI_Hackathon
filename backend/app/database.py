@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterator
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, create_engine
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
 from .config import get_settings
@@ -30,6 +30,7 @@ class Target(Base):
     base_url: Mapped[str] = mapped_column(String(500))
     authorized: Mapped[bool] = mapped_column(Boolean, default=False)
     allowed_tools: Mapped[list[str]] = mapped_column(JSON, default=list)
+    approved_paths: Mapped[list[str]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -130,6 +131,9 @@ SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 def init_db() -> None:
     Base.metadata.create_all(engine)
+    if "approved_paths" not in {column["name"] for column in inspect(engine).get_columns("targets")}:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE targets ADD COLUMN approved_paths JSON"))
     with SessionLocal() as session:
         target = session.get(Target, "lab-web-01")
         if not target:
@@ -146,8 +150,12 @@ def init_db() -> None:
                     base_url=base_url,
                     authorized=True,
                     allowed_tools=["network_discovery", "web_inspection"],
+                    approved_paths=["/admin", "/api/status", "/api/debug"],
                 )
             )
+            session.commit()
+        elif not target.approved_paths:
+            target.approved_paths = ["/admin", "/api/status", "/api/debug"]
             session.commit()
 
 

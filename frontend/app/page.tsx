@@ -10,6 +10,7 @@ type Target = {
   port: number;
   authorized: boolean;
   allowed_tools: string[];
+  approved_paths: string[];
 };
 
 type Evidence = {
@@ -133,8 +134,11 @@ export default function Home() {
   const [current, setCurrent] = useState<Investigation | null>(null);
   const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
   const [targetId, setTargetId] = useState('lab-web-01');
+  const [showTargetForm, setShowTargetForm] = useState(false);
+  const [targetForm, setTargetForm] = useState({ name: '', environment: 'authorized-lab', baseUrl: '', paths: '/admin, /api/status', attested: false });
   const [failureMode, setFailureMode] = useState('none');
   const [activeTab, setActiveTab] = useState<'hypotheses' | 'evidence' | 'audit'>('hypotheses');
+  const [workspaceView, setWorkspaceView] = useState<'investigation' | 'evaluation' | 'audit'>('investigation');
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState('');
@@ -187,6 +191,28 @@ export default function Home() {
     }
   };
 
+  const registerTarget = async () => {
+    setError('');
+    try {
+      const target = await request<Target>('/api/targets', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: targetForm.name,
+          environment: targetForm.environment,
+          base_url: targetForm.baseUrl,
+          approved_paths: targetForm.paths.split(',').map((path) => path.trim()).filter(Boolean),
+          authorization_attested: targetForm.attested,
+        }),
+      });
+      setTargets((items) => [...items, target]);
+      setTargetId(target.id);
+      setShowTargetForm(false);
+      setTargetForm({ name: '', environment: 'authorized-lab', baseUrl: '', paths: '/admin, /api/status', attested: false });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not register the target.');
+    }
+  };
+
   const acknowledgeReview = async () => {
     if (!current) return;
     try {
@@ -226,11 +252,12 @@ export default function Home() {
         <aside className="border-b border-white/10 px-5 py-5 lg:min-h-[calc(100vh-73px)] lg:border-b-0 lg:border-r lg:px-4">
           <p className="px-2 text-[10px] font-bold uppercase tracking-[.16em] text-[#567066]">Workspace</p>
           <nav className="mt-3 grid grid-cols-3 gap-2 lg:grid-cols-1" aria-label="Dashboard navigation">
-            {['Investigation', 'Evaluation', 'Audit trail'].map((item, index) => (
-              <button key={item} className={`rounded-xl px-3 py-2.5 text-left text-sm ${index === 0 ? 'bg-white/[.07] text-white' : 'text-[#82998f] hover:bg-white/[.035]'}`}>
+            {(['Investigation', 'Evaluation', 'Audit trail'] as const).map((item, index) => {
+              const view = index === 0 ? 'investigation' : index === 1 ? 'evaluation' : 'audit';
+              return <button key={item} onClick={() => setWorkspaceView(view)} className={`rounded-xl px-3 py-2.5 text-left text-sm ${workspaceView === view ? 'bg-white/[.07] text-white' : 'text-[#82998f] hover:bg-white/[.035]'}`}>
                 <span className="mr-2 text-[#9af7bd]">{['◉', '⌁', '≡'][index]}</span>{item}
-              </button>
-            ))}
+              </button>;
+            })}
           </nav>
 
           <div className="mt-7 hidden lg:block">
@@ -282,12 +309,13 @@ export default function Home() {
                 </div>
               </div>
               <div className="grid gap-px border-t border-white/10 bg-white/10 sm:grid-cols-2">
-                <label className="bg-[#0a1714] px-6 py-4">
+                <div className="bg-[#0a1714] px-6 py-4">
                   <span className="text-[10px] font-bold uppercase tracking-[.14em] text-[#567066]">Authorized target</span>
                   <select value={targetId} onChange={(event) => setTargetId(event.target.value)} className="mt-1 block w-full bg-transparent text-sm text-[#dbe8e2] outline-none">
                     {targets.length ? targets.map((target) => <option key={target.id} value={target.id} className="bg-[#0a1714]">{target.name}</option>) : <option className="bg-[#0a1714]">lab-web-01</option>}
                   </select>
-                </label>
+                  <button onClick={() => setShowTargetForm((visible) => !visible)} className="mt-2 text-xs font-semibold text-[#9af7bd]">{showTargetForm ? 'Cancel target registration' : '+ Register authorized lab target'}</button>
+                </div>
                 <label className="bg-[#0a1714] px-6 py-4">
                   <span className="text-[10px] font-bold uppercase tracking-[.14em] text-[#567066]">Demo failure injection</span>
                   <select value={failureMode} onChange={(event) => setFailureMode(event.target.value)} className="mt-1 block w-full bg-transparent text-sm text-[#dbe8e2] outline-none">
@@ -321,6 +349,20 @@ export default function Home() {
             </aside>
           </section>
 
+          {showTargetForm && <section className="mt-5 rounded-[24px] border border-[#9af7bd]/20 bg-[#0a1714] p-5 sm:p-7">
+            <Badge tone="green">Target onboarding</Badge>
+            <h2 className="mt-3 text-xl font-semibold">Register an explicitly authorized lab target</h2>
+            <p className="mt-2 text-sm leading-6 text-[#82998f]">Your authorization attestation is recorded when this target is added. Only the paths you enter below can be inspected, and all operations remain read-only.</p>
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              <input value={targetForm.name} onChange={(event) => setTargetForm({ ...targetForm, name: event.target.value })} placeholder="Target name" className="rounded-xl border border-white/10 bg-[#07110f] px-4 py-3 text-sm outline-none" />
+              <input value={targetForm.environment} onChange={(event) => setTargetForm({ ...targetForm, environment: event.target.value })} placeholder="Environment" className="rounded-xl border border-white/10 bg-[#07110f] px-4 py-3 text-sm outline-none" />
+              <input value={targetForm.baseUrl} onChange={(event) => setTargetForm({ ...targetForm, baseUrl: event.target.value })} placeholder="http://approved-lab-host:3000" className="rounded-xl border border-white/10 bg-[#07110f] px-4 py-3 text-sm outline-none md:col-span-2" />
+              <input value={targetForm.paths} onChange={(event) => setTargetForm({ ...targetForm, paths: event.target.value })} placeholder="/admin, /api/status" className="rounded-xl border border-white/10 bg-[#07110f] px-4 py-3 text-sm outline-none md:col-span-2" />
+            </div>
+            <label className="mt-4 flex items-start gap-3 text-sm text-[#aebfb8]"><input type="checkbox" checked={targetForm.attested} onChange={(event) => setTargetForm({ ...targetForm, attested: event.target.checked })} className="mt-1" />I confirm that I am authorized to assess this lab target and its listed paths.</label>
+            <button disabled={!targetForm.attested || !targetForm.name || !targetForm.baseUrl} onClick={registerTarget} className="mt-5 rounded-lg bg-[#9af7bd] px-4 py-2 text-sm font-bold text-[#07110f] disabled:cursor-not-allowed disabled:opacity-40">Register target</button>
+          </section>}
+
           {error && (
             <div role="alert" className="mt-5 flex items-start justify-between gap-4 rounded-2xl border border-[#ffcf7a]/20 bg-[#ffcf7a]/[.07] px-4 py-3 text-sm text-[#ffd48b]">
               <span>{connected ? error : `Dashboard preview is ready; connect the API at ${API_URL}. ${error}`}</span>
@@ -328,6 +370,7 @@ export default function Home() {
             </div>
           )}
 
+          {workspaceView === 'investigation' ? <>
           <section className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               ['Validated', stats.validated, 'green'],
@@ -344,7 +387,34 @@ export default function Home() {
               </div>
             ))}
           </section>
+          </> : workspaceView === 'evaluation' ? (
+            <section className="mt-5 rounded-[24px] border border-white/10 bg-[#0a1714] p-5 sm:p-7">
+              <Badge tone={evaluation?.success_rate === 100 ? 'green' : 'amber'}>Evaluation suite</Badge>
+              <h2 className="mt-4 text-2xl font-semibold tracking-tight">Reliability and safety evaluation</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[#82998f]">Fixed scenarios check correct conclusions, false positives, and graceful handling of model or tool failures.</p>
+              <div className="mt-6 grid gap-3 sm:grid-cols-4">
+                {[
+                  ['Scenarios', evaluation?.scenarios ?? '—'],
+                  ['Correct conclusions', evaluation ? `${evaluation.success_rate}%` : '—'],
+                  ['False positives', evaluation?.false_positives ?? '—'],
+                  ['Failure handling', evaluation ? `${evaluation.graceful_failure_rate}%` : '—'],
+                ].map(([label, value]) => <div key={label} className="rounded-2xl border border-white/[.08] bg-[#07110f] p-4"><p className="text-2xl font-semibold">{value}</p><p className="mt-1 text-[10px] font-bold uppercase tracking-[.13em] text-[#60786e]">{label}</p></div>)}
+              </div>
+              <button onClick={loadWorkspace} className="mt-6 rounded-lg border border-[#9af7bd]/25 px-4 py-2 text-xs font-semibold text-[#9af7bd]">Refresh evaluation</button>
+            </section>
+          ) : (
+            <section className="mt-5 rounded-[24px] border border-white/10 bg-[#0a1714] p-5 sm:p-7">
+              <Badge tone="neutral">Audit trail</Badge>
+              <h2 className="mt-4 text-2xl font-semibold tracking-tight">Workspace activity</h2>
+              <p className="mt-2 text-sm leading-6 text-[#82998f]">Select a recent run to inspect its full policy, tool, model, and decision audit trail.</p>
+              <div className="mt-6 grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+                <div className="space-y-2">{history.length ? history.map((run) => <button key={run.id} onClick={() => setCurrent(run)} className={`w-full rounded-xl border p-3 text-left ${current?.id === run.id ? 'border-[#9af7bd]/25 bg-[#9af7bd]/[.06]' : 'border-white/[.08] bg-[#07110f]'}`}><p className="font-mono text-[11px]">{run.id}</p><p className="mt-1 text-xs text-[#82998f]">{run.summary || run.status}</p></button>) : <EmptyState text="No investigations recorded yet." />}</div>
+                <div className="max-h-[620px] space-y-3 overflow-y-auto rounded-2xl border border-white/[.08] bg-[#07110f] p-4">{current?.events.length ? current.events.map((item) => <div key={item.id} className="border-b border-white/[.06] pb-3"><div className="flex justify-between gap-3"><p className="font-mono text-[10px] text-[#8ea39a]">{item.event_type}</p><time className="text-[10px] text-[#496158]">{new Date(item.created_at).toLocaleTimeString()}</time></div><p className="mt-1 text-xs leading-5 text-[#82998f]">{item.message}</p></div>) : <EmptyState text="Select a run to inspect its audit events." />}</div>
+              </div>
+            </section>
+          )}
 
+          {workspaceView === 'investigation' && <>
           <section className="mt-5 rounded-[24px] border border-white/10 bg-[#0a1714] p-5">
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
               <div>
@@ -449,6 +519,7 @@ export default function Home() {
               </div>
             </aside>
           </section>
+          </>}
         </div>
       </div>
     </main>

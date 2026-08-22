@@ -3,6 +3,7 @@ from urllib.parse import urlparse
 
 from ..database import Investigation, Target
 from ..schemas import ToolRequest
+from .knowledge import approved_web_paths
 
 
 class PolicyViolation(ValueError):
@@ -35,10 +36,14 @@ class PolicyEngine:
             raise PolicyViolation("OPERATION_NOT_ALLOWED: only read-only operations are permitted")
         if request.scope != "authorized":
             raise PolicyViolation("SCOPE_NOT_AUTHORIZED")
+        if request.tool == "network_discovery" and request.path != "/":
+            raise PolicyViolation("DISCOVERY_PATH_NOT_ALLOWED: discovery is target-wide and has no route path")
+        approved_paths = set(getattr(target, "approved_paths", None) or approved_web_paths(target.id))
+        if request.tool == "web_inspection" and request.path not in approved_paths:
+            raise PolicyViolation("PATH_NOT_ALLOWED: web inspection path is outside approved target knowledge")
         if investigation.tool_calls >= max_tool_calls:
             raise PolicyViolation("TOOL_BUDGET_EXCEEDED")
         parsed = urlparse(target.base_url)
         if parsed.scheme not in {"http", "https"} or parsed.hostname != target.host:
             raise PolicyViolation("TARGET_CONFIG_INVALID: base URL escapes the allowlisted host")
         return PolicyDecision(True, "Target, tool, operation, scope, and budget approved")
-
