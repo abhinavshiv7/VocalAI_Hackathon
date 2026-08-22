@@ -72,7 +72,7 @@ Any tool/model/schema failure sets `degraded_mode`. Model failure also creates a
 ## Model modes
 
 - `deterministic`: executes two separate, schema-valid role implementations. This is the offline demo and evaluation mode.
-- `live`: calls separately configured OpenAI-compatible Investigator and Critic endpoints. Each model gets one schema retry; a second invalid response becomes `MODEL_INVALID_OUTPUT` and forces human review.
+- `live`: calls separately configured Investigator and Critic endpoints. OpenAI-compatible providers use `/chat/completions`; `api.anthropic.com` is detected and uses Anthropic's Messages API. Each model gets schema validation and bounded retries; unrecoverable invalid output forces human review.
 
 The provider is replaceable, but the orchestration, validation, safety, evidence, and state-machine logic remain local.
 

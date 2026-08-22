@@ -138,6 +138,7 @@ class InvestigationManager:
                 confidence=0.0,
                 status=HypothesisStatus.NEEDS_HUMAN_REVIEW,
                 required_evidence=["schema-valid Investigator output"],
+                validation_contract={},
             )
             self.session.add(fallback)
             self._human_finding(investigation, fallback, [], "AI planning unavailable; no automated conclusion was made.")
@@ -156,6 +157,7 @@ class InvestigationManager:
                 confidence=draft.confidence,
                 status=HypothesisStatus.UNDER_INVESTIGATION,
                 required_evidence=draft.required_evidence,
+                validation_contract=draft.validation_contract.model_dump(),
             )
             self.session.add(hypothesis)
             self.session.flush()
@@ -420,6 +422,7 @@ def hypothesis_to_dict(item: Hypothesis) -> dict:
         "confidence": item.confidence,
         "status": item.status,
         "required_evidence": item.required_evidence,
+        "validation_contract": item.validation_contract or {},
         "critic_decision": item.critic_decision,
         "created_at": item.created_at.isoformat(),
     }

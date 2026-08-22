@@ -178,6 +178,7 @@ class HttpxInspectionTool(SecurityTool):
                 target=target.id,
                 observation=f"{request.path} returned HTTP {status}",
                 severity="info" if status in {401, 403} else "medium",
+                kind="HTTP_RESPONSE_OBSERVED",
                 raw={"path": request.path, "status_code": status},
             )
         ]
