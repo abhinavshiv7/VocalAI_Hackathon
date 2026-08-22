@@ -26,6 +26,9 @@ NORMALIZED-EVIDENCE INTERPRETATION
 
 YOU MAY
 - Compare the supplied hypothesis with the supplied evidence.
+- Treat `backend_evidence_assessment` as an authoritative, deterministic
+  interpretation of the normalized evidence contract. Do not override a
+  `validated`, `rejected`, or `inconclusive` rule state with speculation.
 - Identify exact missing evidence and contradictions.
 - Calibrate confidence to the quality and directness of the evidence.
 

@@ -2,7 +2,7 @@
   {
     "id": "S-01",
     "name": "Exposed administrative endpoint",
-    "hypothesis": {"title": "Admin exposure"},
+    "hypothesis": {"title": "Admin exposure", "validation_contract": {"claim_type": "unauthenticated_admin_exposure", "validation_path": "/admin", "proof_evidence_kinds": ["ADMIN_EXPOSURE"], "rejection_evidence_kinds": ["AUTH_CONTROL_OBSERVED"]}},
     "evidence": [{"kind": "ADMIN_EXPOSURE", "observation": "HTTP 200 without authentication challenge"}],
     "expected_status": "VALIDATED",
     "confidence_range": [0.85, 1.0]
@@ -10,7 +10,7 @@
   {
     "id": "S-02",
     "name": "Missing browser security headers",
-    "hypothesis": {"title": "Header weakness"},
+    "hypothesis": {"title": "Header weakness", "validation_contract": {"claim_type": "missing_security_headers", "validation_path": "/", "proof_evidence_kinds": ["MISSING_SECURITY_HEADERS"], "rejection_evidence_kinds": ["RESPONSE_HEADERS_OBSERVED"]}},
     "evidence": [{"kind": "MISSING_SECURITY_HEADERS", "observation": "CSP and frame controls absent"}],
     "expected_status": "VALIDATED",
     "confidence_range": [0.8, 0.95]
@@ -18,7 +18,7 @@
   {
     "id": "S-03",
     "name": "Suspicious debug route is protected",
-    "hypothesis": {"title": "Debug exposure"},
+    "hypothesis": {"title": "Debug exposure", "validation_contract": {"claim_type": "unauthenticated_route_access", "validation_path": "/api/debug", "proof_evidence_kinds": ["UNAUTHENTICATED_ROUTE_EXPOSURE"], "rejection_evidence_kinds": ["AUTH_CONTROL_OBSERVED"]}},
     "evidence": [{"kind": "AUTH_CONTROL_OBSERVED", "observation": "/api/debug returned HTTP 403"}],
     "expected_status": "REJECTED",
     "confidence_range": [0.8, 0.95]
@@ -26,7 +26,7 @@
   {
     "id": "S-04",
     "name": "Insufficient generic reachability evidence",
-    "hypothesis": {"title": "Possible weakness"},
+    "hypothesis": {"title": "Possible weakness", "validation_contract": {"claim_type": "route_observation", "validation_path": "/", "proof_evidence_kinds": ["HTTP_RESPONSE_OBSERVED"], "rejection_evidence_kinds": ["AUTH_CONTROL_OBSERVED"]}},
     "evidence": [{"kind": "OBSERVATION", "observation": "The service is reachable"}],
     "expected_status": "NEEDS_HUMAN_REVIEW",
     "confidence_range": [0.2, 0.5]
@@ -34,7 +34,7 @@
   {
     "id": "S-05",
     "name": "Tool timeout",
-    "hypothesis": {"title": "Unverified after timeout"},
+    "hypothesis": {"title": "Unverified after timeout", "validation_contract": {"claim_type": "route_observation", "validation_path": "/", "proof_evidence_kinds": ["HTTP_RESPONSE_OBSERVED"], "rejection_evidence_kinds": ["AUTH_CONTROL_OBSERVED"]}},
     "evidence": [{"kind": "TOOL_TIMEOUT", "observation": "Probe exceeded eight seconds"}],
     "expected_status": "NEEDS_HUMAN_REVIEW",
     "confidence_range": [0.0, 0.3],
@@ -43,7 +43,7 @@
   {
     "id": "S-06",
     "name": "Critic model outage",
-    "hypothesis": {"title": "Model unavailable"},
+    "hypothesis": {"title": "Model unavailable", "validation_contract": {"claim_type": "unauthenticated_admin_exposure", "validation_path": "/admin", "proof_evidence_kinds": ["ADMIN_EXPOSURE"], "rejection_evidence_kinds": ["AUTH_CONTROL_OBSERVED"]}},
     "evidence": [{"kind": "ADMIN_EXPOSURE", "observation": "Potentially strong evidence"}],
     "expected_status": "NEEDS_HUMAN_REVIEW",
     "confidence_range": [0.0, 0.1],
@@ -52,7 +52,7 @@
   {
     "id": "S-07",
     "name": "Malformed critic response",
-    "hypothesis": {"title": "Malformed model output"},
+    "hypothesis": {"title": "Malformed model output", "validation_contract": {"claim_type": "unauthenticated_admin_exposure", "validation_path": "/admin", "proof_evidence_kinds": ["ADMIN_EXPOSURE"], "rejection_evidence_kinds": ["AUTH_CONTROL_OBSERVED"]}},
     "evidence": [{"kind": "ADMIN_EXPOSURE", "observation": "Potentially strong evidence"}],
     "expected_status": "NEEDS_HUMAN_REVIEW",
     "confidence_range": [0.0, 0.1],
@@ -61,7 +61,7 @@
   {
     "id": "S-08",
     "name": "Contradictory authentication evidence",
-    "hypothesis": {"title": "Conflicting admin behavior"},
+    "hypothesis": {"title": "Conflicting admin behavior", "validation_contract": {"claim_type": "unauthenticated_admin_exposure", "validation_path": "/admin", "proof_evidence_kinds": ["ADMIN_EXPOSURE"], "rejection_evidence_kinds": ["AUTH_CONTROL_OBSERVED"]}},
     "evidence": [
       {"kind": "ADMIN_EXPOSURE", "observation": "One probe returned HTTP 200"},
       {"kind": "AUTH_CONTROL_OBSERVED", "observation": "A second probe returned HTTP 403"}
@@ -73,7 +73,7 @@
   {
     "id": "S-09",
     "name": "Clean authentication control",
-    "hypothesis": {"title": "Admin route might be open"},
+    "hypothesis": {"title": "Admin route might be open", "validation_contract": {"claim_type": "unauthenticated_admin_exposure", "validation_path": "/admin", "proof_evidence_kinds": ["ADMIN_EXPOSURE"], "rejection_evidence_kinds": ["AUTH_CONTROL_OBSERVED"]}},
     "evidence": [{"kind": "AUTH_CONTROL_OBSERVED", "observation": "Authentication challenge returned"}],
     "expected_status": "REJECTED",
     "confidence_range": [0.8, 0.95]
@@ -81,11 +81,10 @@
   {
     "id": "S-10",
     "name": "Empty tool result",
-    "hypothesis": {"title": "No usable observation"},
+    "hypothesis": {"title": "No usable observation", "validation_contract": {"claim_type": "route_observation", "validation_path": "/", "proof_evidence_kinds": ["HTTP_RESPONSE_OBSERVED"], "rejection_evidence_kinds": ["AUTH_CONTROL_OBSERVED"]}},
     "evidence": [{"kind": "TOOL_FAILED", "observation": "No normalizable output"}],
     "expected_status": "NEEDS_HUMAN_REVIEW",
     "confidence_range": [0.0, 0.3],
     "failure_scenario": true
   }
 ]
-

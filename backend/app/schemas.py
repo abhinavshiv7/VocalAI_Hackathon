@@ -45,12 +45,34 @@ class ToolRequest(BaseModel):
         return value
 
 
+class ValidationContract(BaseModel):
+    """Machine-checkable criteria that bound a provisional hypothesis."""
+
+    claim_type: Literal[
+        "missing_security_headers",
+        "unauthenticated_admin_exposure",
+        "unauthenticated_route_access",
+        "route_observation",
+    ]
+    validation_path: str
+    proof_evidence_kinds: list[str] = Field(min_length=1, max_length=4)
+    rejection_evidence_kinds: list[str] = Field(min_length=1, max_length=4)
+
+    @field_validator("validation_path")
+    @classmethod
+    def contract_path_is_local(cls, value: str) -> str:
+        if not value.startswith("/") or ".." in value or "://" in value:
+            raise ValueError("validation_path must be a local absolute URL path")
+        return value
+
+
 class HypothesisDraft(BaseModel):
     title: str
     description: str
     reason: str
     confidence: float = Field(ge=0, le=1)
     required_evidence: list[str]
+    validation_contract: ValidationContract
     tool_request: ToolRequest
     follow_up_tool_request: ToolRequest | None = None
 

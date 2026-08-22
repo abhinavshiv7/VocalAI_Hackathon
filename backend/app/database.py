@@ -65,6 +65,7 @@ class Hypothesis(Base):
     confidence: Mapped[float] = mapped_column(Float)
     status: Mapped[str] = mapped_column(String(40), default="HYPOTHESIS")
     required_evidence: Mapped[list[str]] = mapped_column(JSON, default=list)
+    validation_contract: Mapped[dict] = mapped_column(JSON, default=dict)
     critic_decision: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
@@ -134,6 +135,9 @@ def init_db() -> None:
     if "approved_paths" not in {column["name"] for column in inspect(engine).get_columns("targets")}:
         with engine.begin() as connection:
             connection.execute(text("ALTER TABLE targets ADD COLUMN approved_paths JSON"))
+    if "validation_contract" not in {column["name"] for column in inspect(engine).get_columns("hypotheses")}:
+        with engine.begin() as connection:
+            connection.execute(text("ALTER TABLE hypotheses ADD COLUMN validation_contract JSON"))
     with SessionLocal() as session:
         target = session.get(Target, "lab-web-01")
         if not target:
