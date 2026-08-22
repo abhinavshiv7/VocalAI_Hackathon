@@ -18,7 +18,7 @@ It is deliberately **not** an autonomous scanner, public-target testing tool, or
 |---|---|
 | Source code and detailed documentation | [GitHub repository](https://github.com/abhinavshiv7/VocalAI_Hackathon) |
 | Local live demo | [http://localhost:3000](http://localhost:3000) after running Docker Compose |
-| Deployed demo | Configure the deployment URL for the submitted environment before sharing. |
+| Deployed demo | [http://34.131.158.227:3000](http://34.131.158.227:3000/) |
 | Demo video **(required)** | **Add the final public Drive or video link here before submitting.** |
 | Screenshots / supporting material | Dashboard and Evaluation workspace screenshots can be captured from the running local or deployed app. |
 
