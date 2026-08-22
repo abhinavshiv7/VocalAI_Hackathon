@@ -181,6 +181,28 @@ class HttpxInspectionTool(SecurityTool):
                 raw={"path": request.path, "status_code": status},
             )
         ]
+        if headers:
+            evidence.append(
+                NormalizedEvidence(
+                    source=self.name,
+                    target=target.id,
+                    observation=f"Observed response headers: {', '.join(sorted(headers))}",
+                    severity="info",
+                    kind="RESPONSE_HEADERS_OBSERVED",
+                    raw={"path": request.path, "header_names": sorted(headers)},
+                )
+            )
+        if status in {401, 403}:
+            evidence.append(
+                NormalizedEvidence(
+                    source=self.name,
+                    target=target.id,
+                    observation=f"Access control observed: unauthenticated request was denied with HTTP {status}",
+                    severity="info",
+                    kind="AUTH_CONTROL_OBSERVED",
+                    raw={"path": request.path, "status_code": status},
+                )
+            )
         if request.path == "/admin":
             exposed = status == 200 and "www-authenticate" not in headers
             evidence.append(

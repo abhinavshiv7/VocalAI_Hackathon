@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from urllib.parse import urlsplit
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -8,8 +9,9 @@ from sqlalchemy.orm import Session
 
 from ..config import Settings
 from ..database import AuditEvent, Evidence, Finding, Hypothesis, Investigation, Target, ToolExecution
-from ..schemas import CriticOutput, HypothesisStatus, InvestigationStatus, ToolRequest
+from ..schemas import CriticOutput, HypothesisStatus, InvestigationStatus, TargetCreate, ToolRequest
 from .ai import CriticService, InvestigatorService, ModelFailure, StructuredModelClient
+from .knowledge import retrieve_target_knowledge
 from .policy import PolicyEngine, PolicyViolation
 from .tools import ToolResult, tool_registry
 
@@ -44,6 +46,26 @@ class InvestigationManager:
 
     def list_targets(self) -> list[Target]:
         return list(self.session.scalars(select(Target).order_by(Target.id)))
+
+    def register_target(self, payload: TargetCreate) -> Target:
+        parsed = urlsplit(payload.base_url)
+        approved_hosts = {host.strip().lower() for host in self.settings.authorized_target_hosts.split(",") if host.strip()}
+        if self.settings.target_registration_mode == "allowlisted" and (parsed.hostname is None or parsed.hostname.lower() not in approved_hosts):
+            raise PolicyViolation("TARGET_HOST_NOT_APPROVED: ask an administrator to add this lab host to AUTHORIZED_TARGET_HOSTS")
+        target = Target(
+            id=new_id("TGT"),
+            name=payload.name,
+            environment=payload.environment,
+            host=parsed.hostname,
+            port=parsed.port or (443 if parsed.scheme == "https" else 80),
+            base_url=payload.base_url,
+            authorized=True,
+            allowed_tools=["network_discovery", "web_inspection"],
+            approved_paths=payload.approved_paths,
+        )
+        self.session.add(target)
+        self.session.commit()
+        return target
 
     def create(self, target_id: str) -> Investigation:
         target = self.session.get(Target, target_id)
@@ -84,7 +106,12 @@ class InvestigationManager:
         try:
             if investigation.model_calls >= self.settings.max_investigator_calls:
                 raise ModelFailure("MODEL_BUDGET_EXCEEDED", "Investigator call budget exhausted")
-            investigator_run = await self.investigator.generate(target.id, [evidence_to_dict(e) for e in discovery_evidence])
+            retrieved_knowledge = retrieve_target_knowledge(target.id, target.approved_paths)
+            investigator_run = await self.investigator.generate(
+                target.id,
+                [evidence_to_dict(e) for e in discovery_evidence],
+                retrieved_knowledge,
+            )
             investigation.model_calls += investigator_run.attempts
             investigation.estimated_cost_usd += investigator_run.estimated_cost_usd
             drafts = investigator_run.output.hypotheses
@@ -93,7 +120,11 @@ class InvestigationManager:
                 investigation.id,
                 "INVESTIGATOR_COMPLETED",
                 investigator_run.output.reasoning_summary,
-                {"latency_ms": investigator_run.latency_ms, "hypotheses": len(drafts)},
+                {
+                    "latency_ms": investigator_run.latency_ms,
+                    "hypotheses": len(drafts),
+                    "retrieved_knowledge_chunks": len(retrieved_knowledge),
+                },
             )
         except ModelFailure as exc:
             investigation.model_calls += 2 if exc.event_type == "MODEL_INVALID_OUTPUT" else 1
@@ -148,6 +179,36 @@ class InvestigationManager:
                     decision.reason,
                     {"hypothesis_id": hypothesis.id, "decision": decision.decision, "latency_ms": critic_run.latency_ms},
                 )
+                if decision.decision == "needs_more_evidence" and draft.follow_up_tool_request:
+                    self._transition(
+                        investigation,
+                        InvestigationStatus.INVESTIGATING,
+                        f"Collecting preplanned follow-up evidence for {hypothesis.id}",
+                    )
+                    follow_up_evidence = await self._run_tool(
+                        investigation,
+                        target,
+                        draft.follow_up_tool_request,
+                        hypothesis.id,
+                    )
+                    evidence.extend(follow_up_evidence)
+                    self._transition(investigation, InvestigationStatus.CRITIC_REVIEW, f"Critic re-reviewing {hypothesis.id}")
+                    follow_up_run = await self.critic.review(
+                        hypothesis_to_dict(hypothesis),
+                        [evidence_to_dict(item) for item in evidence],
+                    )
+                    investigation.model_calls += follow_up_run.attempts
+                    investigation.estimated_cost_usd += follow_up_run.estimated_cost_usd
+                    decision = follow_up_run.output  # type: ignore[assignment]
+                    hypothesis.critic_decision = decision.model_dump()
+                    hypothesis.confidence = decision.confidence
+                    add_event(
+                        self.session,
+                        investigation.id,
+                        "CRITIC_FOLLOW_UP_COMPLETED",
+                        decision.reason,
+                        {"hypothesis_id": hypothesis.id, "decision": decision.decision, "latency_ms": follow_up_run.latency_ms},
+                    )
                 self._apply_critic_decision(investigation, hypothesis, evidence, decision)
             except ModelFailure as exc:
                 investigation.model_calls += 2 if exc.event_type == "MODEL_INVALID_OUTPUT" else 1
@@ -431,4 +492,5 @@ def target_to_dict(item: Target) -> dict:
         "base_url": item.base_url,
         "authorized": item.authorized,
         "allowed_tools": item.allowed_tools,
+        "approved_paths": item.approved_paths,
     }

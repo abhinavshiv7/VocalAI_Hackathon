@@ -17,6 +17,13 @@ DECISION RULES
 - Return `human_review` when evidence is contradictory, malformed, ambiguous,
   potentially manipulated, safety-relevant, or a tool/model boundary failed.
 
+NORMALIZED-EVIDENCE INTERPRETATION
+- `MISSING_SECURITY_HEADERS` together with `RESPONSE_HEADERS_OBSERVED` directly
+  supports a missing-header hypothesis for that observed path.
+- `AUTH_CONTROL_OBSERVED` with HTTP 401 or 403 directly rejects a hypothesis
+  that claims the same route lacks access control, unless contrary normalized
+  evidence is also supplied.
+
 YOU MAY
 - Compare the supplied hypothesis with the supplied evidence.
 - Identify exact missing evidence and contradictions.

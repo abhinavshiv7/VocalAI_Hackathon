@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from .config import Settings, get_settings
 from .database import SessionLocal, init_db
-from .schemas import EvaluationSummary, FailureInjection, HealthView, InvestigationCreate, TargetView
+from .schemas import EvaluationSummary, FailureInjection, HealthView, InvestigationCreate, TargetCreate, TargetView
 from .services.evaluation import run_evaluation
 from .services.failures import failure_controller
 from .services.investigation import InvestigationManager, add_event, investigation_to_dict, target_to_dict
@@ -59,6 +59,14 @@ def health(session: Session = Depends(get_db), config: Settings = Depends(get_se
 @app.get("/api/targets", response_model=list[TargetView])
 def targets(service: InvestigationManager = Depends(manager)):
     return [target_to_dict(item) for item in service.list_targets()]
+
+
+@app.post("/api/targets", response_model=TargetView, status_code=201)
+def register_target(payload: TargetCreate, service: InvestigationManager = Depends(manager)):
+    try:
+        return target_to_dict(service.register_target(payload))
+    except PolicyViolation as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
 @app.get("/api/tools")

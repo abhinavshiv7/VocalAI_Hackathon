@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import time
+import asyncio
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
@@ -63,7 +64,8 @@ class StructuredModelClient:
             raise ModelFailure("MODEL_UNAVAILABLE", f"No API key configured for {role}")
 
         last_error = ""
-        for attempt in range(1, 3):
+        rate_limited = False
+        for attempt in range(1, self.settings.model_retry_attempts + 1):
             try:
                 content = await self._chat_completion(
                     base_url=config["base_url"],
@@ -83,14 +85,28 @@ class StructuredModelClient:
                     estimated_cost_usd=0.002,
                     attempts=attempt,
                 )
+            except httpx.HTTPStatusError as exc:
+                rate_limited = exc.response.status_code == 429
+                last_error = f"Model request failed: {exc}"
+                if rate_limited and attempt < self.settings.model_retry_attempts:
+                    await asyncio.sleep(self._retry_delay_seconds(exc, attempt))
             except (json.JSONDecodeError, ValidationError) as exc:
                 last_error = f"Your last output did not match the schema: {exc}"
             except httpx.TimeoutException as exc:
                 last_error = f"Model timeout: {exc}"
             except (httpx.HTTPError, KeyError, ValueError) as exc:
                 last_error = f"Model request failed: {exc}"
-        event = "MODEL_INVALID_OUTPUT" if "schema" in last_error or "valid" in last_error else "MODEL_UNAVAILABLE"
+        event = "MODEL_INVALID_OUTPUT" if "schema" in last_error or "valid" in last_error else "MODEL_RATE_LIMITED" if rate_limited else "MODEL_UNAVAILABLE"
         raise ModelFailure(event, last_error or f"{role} model failed")
+
+    def _retry_delay_seconds(self, error: httpx.HTTPStatusError, attempt: int) -> float:
+        retry_after = error.response.headers.get("Retry-After")
+        try:
+            if retry_after is not None:
+                return min(max(float(retry_after), 0.0), self.settings.model_retry_max_delay_seconds)
+        except ValueError:
+            pass
+        return min(float(2 ** (attempt - 1)), self.settings.model_retry_max_delay_seconds)
 
     def _provider_config(self, role: str) -> dict[str, str]:
         if role == "investigator":
@@ -141,6 +157,28 @@ class StructuredModelClient:
     def _deterministic(self, role: str, payload: dict[str, Any]) -> dict[str, Any]:
         if role == "investigator":
             target_id = payload["target_id"]
+            approved_paths = [chunk["path"] for chunk in payload.get("retrieved_target_knowledge", [])]
+            if target_id != "lab-web-01":
+                hypotheses = [
+                    HypothesisDraft(
+                        title=f"Approved route {path} requires evidence-based review",
+                        description="The explicitly authorized route is inspected read-only; its name alone is not a finding.",
+                        reason="A direct status, header, and authentication observation is required before any conclusion.",
+                        confidence=0.4,
+                        required_evidence=["HTTP status", "response header inventory", "authentication behavior"],
+                        tool_request=ToolRequest(
+                            tool="web_inspection",
+                            target_id=target_id,
+                            path=path,
+                            reason=f"Collect direct read-only evidence from the approved route {path}.",
+                        ),
+                    )
+                    for path in approved_paths[:5]
+                ]
+                return InvestigatorOutput(
+                    reasoning_summary="Only onboarding-approved routes are available for deterministic read-only review.",
+                    hypotheses=hypotheses,
+                ).model_dump()
             return InvestigatorOutput(
                 reasoning_summary=(
                     "Service discovery justifies focused, read-only HTTP checks. "
@@ -238,7 +276,12 @@ class InvestigatorService:
     def __init__(self, client: StructuredModelClient):
         self.client = client
 
-    async def generate(self, target_id: str, discovery_evidence: list[dict[str, Any]]) -> ModelRun:
+    async def generate(
+        self,
+        target_id: str,
+        discovery_evidence: list[dict[str, Any]],
+        retrieved_target_knowledge: list[dict[str, Any]],
+    ) -> ModelRun:
         return await self.client.call(
             role="investigator",
             schema=InvestigatorOutput,
@@ -248,6 +291,7 @@ class InvestigatorService:
                 "authorized": True,
                 "available_tools": ["network_discovery", "web_inspection"],
                 "discovery_evidence": discovery_evidence,
+                "retrieved_target_knowledge": retrieved_target_knowledge,
             },
         )
 
