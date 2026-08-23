@@ -17,9 +17,7 @@ services:
     networks: [control-plane]
 
   fake-target:
-    build:
-      context: .
-      dockerfile: fake-target/Dockerfile
+    image: ghcr.io/abhinavshiv7/vocalai_hackathon-fake-target:latest
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3000/health"]
       interval: 3s
@@ -28,15 +26,10 @@ services:
     networks: [authorized-lab]
 
   backend:
-    build:
-      context: .
-      dockerfile: backend/Dockerfile
+    image: ghcr.io/abhinavshiv7/vocalai_hackathon-backend:latest
     environment:
-      APP_ENV: ${APP_ENV:-development}
+      APP_ENV: ${APP_ENV:-production}
       DATABASE_URL: postgresql+psycopg://sentinelloop:sentinelloop@postgres:5432/sentinelloop
-      # Set to the public dashboard origin in production to restrict CORS.
-      # When omitted, the API accepts HTTP(S) dashboard origins so the
-      # published image also works on a VM without an image rebuild.
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-}
       AUTHORIZED_TARGET_HOST: fake-target
       AUTHORIZED_TARGET_PORT: 3000
@@ -50,11 +43,7 @@ services:
       CRITIC_BASE_URL: ${CRITIC_BASE_URL:-https://api.openai.com/v1}
       CRITIC_API_KEY: ${CRITIC_API_KEY:-}
       CRITIC_MODEL: ${CRITIC_MODEL:-gpt-5-mini}
-      MODEL_TIMEOUT_SECONDS: ${MODEL_TIMEOUT_SECONDS:-45}
-      MODEL_RETRY_ATTEMPTS: ${MODEL_RETRY_ATTEMPTS:-3}
-      MODEL_RETRY_MAX_DELAY_SECONDS: ${MODEL_RETRY_MAX_DELAY_SECONDS:-8}
-      TOOL_TIMEOUT_SECONDS: ${TOOL_TIMEOUT_SECONDS:-10}
-      DEBUG_FAILURES_ENABLED: ${DEBUG_FAILURES_ENABLED:-true}
+      DEBUG_FAILURES_ENABLED: ${DEBUG_FAILURES_ENABLED:-false}
     ports:
       - "8000:8000"
     depends_on:
@@ -65,17 +54,10 @@ services:
     networks: [control-plane, authorized-lab]
 
   frontend:
-    build:
-      context: .
-      dockerfile: frontend/Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
-    environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+    image: ghcr.io/abhinavshiv7/vocalai_hackathon-frontend:latest
     ports:
       - "3000:3000"
-    depends_on:
-      - backend
+    depends_on: [backend]
     networks: [control-plane]
 
 networks:

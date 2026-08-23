@@ -23,6 +23,13 @@ async def lifespan(_: FastAPI):
 
 
 settings = get_settings()
+configured_origins = [origin.strip() for origin in settings.frontend_origin.split(",") if origin.strip()]
+cors_options = {"allow_origins": configured_origins} if configured_origins else {
+    # The dashboard can be opened through a VM IP, DNS name, or a proxy. This
+    # fallback keeps the pre-built image portable; set FRONTEND_ORIGIN in a
+    # production deployment to restrict access to known dashboard origins.
+    "allow_origin_regex": r"^https?://[^/]+$"
+}
 app = FastAPI(
     title="SentinelLoop API",
     version="0.1.0",
@@ -31,7 +38,7 @@ app = FastAPI(
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_origin, "http://localhost:3000", "http://localhost:5173"],
+    **cors_options,
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type"],

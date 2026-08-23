@@ -302,7 +302,10 @@ Evaluation scenarios are in [`evaluation/scenarios/scenarios.json`](evaluation/s
 
 ## Deployment
 
-`NEXT_PUBLIC_API_URL` is embedded in the frontend bundle during image build. For a VM, it must be reachable from the browser rather than pointing to `localhost`:
+The published frontend derives the API URL from the browser's host, so opening
+`http://YOUR_VM_IP:3000` calls `http://YOUR_VM_IP:8000`. Allow TCP 3000 and
+8000 in the VM firewall. To use a DNS name or a separately hosted API, set the
+public API URL explicitly during the image build:
 
 ```env
 NEXT_PUBLIC_API_URL=http://YOUR_VM_IP:8000

@@ -8,7 +8,9 @@ class Settings(BaseSettings):
     app_name: str = "SentinelLoop API"
     app_env: str = "development"
     database_url: str = "sqlite:///./data/sentinelloop.db"
-    frontend_origin: str = "http://localhost:3000"
+    # A comma-separated list of trusted dashboard origins. Leave empty for the
+    # portable VM default (the API has no cookie/session authentication).
+    frontend_origin: str = ""
     authorized_target_hosts: str = "fake-target"
     target_registration_mode: Literal["attested", "allowlisted"] = "attested"
     ai_mode: str = "deterministic"

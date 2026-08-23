@@ -85,7 +85,19 @@ type Evaluation = {
   graceful_failure_rate: number;
 };
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000';
+function apiUrl() {
+  const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (configured) return configured.replace(/\/$/, '');
+
+  // Do not bake localhost into a published image. In a browser this produces
+  // e.g. http://34.123.45.67:8000 when the dashboard is opened on that VM.
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+  return '';
+}
+
+const API_URL = apiUrl();
 const pipeline = ['Observe', 'Hypothesize', 'Investigate', 'Critique', 'Decide'];
 const failureModes = [
   { value: 'none', label: 'Happy path', kind: 'none', subject: null },
