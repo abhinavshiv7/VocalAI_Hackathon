@@ -18,7 +18,9 @@ It is deliberately **not** an autonomous scanner, public-target testing tool, or
 |---|---|
 | Source code and detailed documentation | [GitHub repository](https://github.com/abhinavshiv7/VocalAI_Hackathon) |
 | Local live demo | [http://localhost:3000](http://localhost:3000) after running Docker Compose |
-| Deployed demo | Configure the deployment URL for the submitted environment before sharing. |
+| Deployed dashboard | [http://34.131.158.227:3000](http://34.131.158.227:3000) |
+| Deployed API health | [http://34.131.158.227:8000/api/health](http://34.131.158.227:8000/api/health) |
+| Deployed API documentation | [http://34.131.158.227:8000/docs](http://34.131.158.227:8000/docs) |
 | Demo video **(required)** | **Add the final public Drive or video link here before submitting.** |
 | Screenshots / supporting material | Dashboard and Evaluation workspace screenshots can be captured from the running local or deployed app. |
 
@@ -76,7 +78,7 @@ SentinelLoop was built by two developers with clearly separated but integrated o
 | Reducing false positives | Every supported hypothesis has proof and rejection evidence rules. Conflicting, incomplete, malformed, or failed evidence becomes human review. |
 | Handling unreliable model providers | Provider errors, rate limits, timeouts, and malformed JSON are logged and lead to safe degradation rather than an invented result. |
 | Supporting a reliable hackathon demo | Deterministic mode, a controlled lab target, a ten-scenario evaluation suite, and demo failure injection make the workflow reproducible without live-model quota. |
-| Deploying a browser-based frontend | The public API URL is configured at frontend build time, with matching backend CORS configuration documented for VM deployment. |
+| Deploying a browser-based frontend | The dashboard derives its API host from the browser URL by default, avoiding a baked-in `localhost` address. An explicit public API URL remains available as a build-time override. |
 
 ## Contents
 
@@ -302,10 +304,21 @@ Evaluation scenarios are in [`evaluation/scenarios/scenarios.json`](evaluation/s
 
 ## Deployment
 
-The published frontend derives the API URL from the browser's host, so opening
-`http://YOUR_VM_IP:3000` calls `http://YOUR_VM_IP:8000`. Allow TCP 3000 and
-8000 in the VM firewall. To use a DNS name or a separately hosted API, set the
-public API URL explicitly during the image build:
+### Live deployment
+
+The current Debian VM deployment is available at:
+
+- Dashboard: [http://34.131.158.227:3000](http://34.131.158.227:3000)
+- API health: [http://34.131.158.227:8000/api/health](http://34.131.158.227:8000/api/health)
+- API documentation: [http://34.131.158.227:8000/docs](http://34.131.158.227:8000/docs)
+
+The published frontend derives the API URL from the browser host. Opening
+`http://YOUR_VM_IP:3000` therefore calls `http://YOUR_VM_IP:8000`; leave
+`NEXT_PUBLIC_API_URL` blank for this standard deployment. Allow TCP 3000 and
+8000 in the VM firewall.
+
+To use a separate API domain or port, set an explicit public API URL when
+building the frontend image:
 
 ```env
 NEXT_PUBLIC_API_URL=http://YOUR_VM_IP:8000
@@ -317,6 +330,20 @@ Rebuild the application services:
 ```bash
 docker compose up --build -d frontend backend
 ```
+
+### Deploy published GHCR images
+
+After the GitHub Actions **Publish container images** workflow completes, copy
+your Git-ignored `.env` file to the VM and run:
+
+```bash
+docker compose -f docker-compose.ghcr.yml pull
+docker compose -f docker-compose.ghcr.yml up -d
+```
+
+For a VM, set `APP_ENV=production`, `DEBUG_FAILURES_ENABLED=false`, and
+`FRONTEND_ORIGIN=http://YOUR_VM_IP:3000` in `.env`. Keep provider API keys out
+of Git and restrict the file with `chmod 600 .env`.
 
 For remote deployments, restrict network exposure, set `DEBUG_FAILURES_ENABLED=false`, use a secret manager where appropriate, and keep the tool network isolated from public networks. See [deployment guidance](docs/deployment.md).
 
@@ -335,6 +362,8 @@ fake-target/          # Controlled Express lab target
 evaluation/scenarios/ # Deterministic evaluation dataset
 docs/                 # Architecture, threat model, deployment, prior art
 docker-compose.yml    # Full local stack
+docker-compose.ghcr.yml # Pull-only deployment stack for GHCR images
+.github/workflows/    # Builds and publishes frontend, backend, and lab images
 ```
 
 ## Limitations
